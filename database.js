@@ -1,43 +1,86 @@
-const sqlite3 = require("sqlite3").verbose();
+const isPG = !!process.env.DATABASE_URL;
 
-const db = new sqlite3.Database("./data.db");
+let db;
 
-db.serialize(() => {
+if (isPG) {
+  const { Pool } = require("pg");
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
 
-  // ---------------- USERS TABLE ----------------
-  db.run(`
-    CREATE TABLE IF NOT EXISTS users (
-      userId TEXT PRIMARY KEY,
-      messages INTEGER DEFAULT 0,
-      voiceSeconds INTEGER DEFAULT 0,
-      lastJoin INTEGER DEFAULT NULL,
-      dailyMessages INTEGER DEFAULT 0,
-      dailyVoice INTEGER DEFAULT 0,
-      larpStreak INTEGER DEFAULT 0,
-      larpWins INTEGER DEFAULT 0
-    )
-  `);
+  function q(sql, params = []) {
+    let idx = 0;
+    let pgSql = sql
+      .replace(/\?/g, () => `$${++idx}`)
+      .replace(/INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT/gi, "SERIAL PRIMARY KEY")
+      .replace(/AUTOINCREMENT/gi, "");
 
-  // ---------------- BOT STATE TABLE ----------------
-  db.run(`
-    CREATE TABLE IF NOT EXISTS bot_data (
-      key TEXT PRIMARY KEY,
-      value TEXT
-    )
-  `);
+    // INSERT OR IGNORE -> ON CONFLICT DO NOTHING
+    pgSql = pgSql.replace(/INSERT\s+OR\s+IGNORE\s+INTO/i, "INSERT INTO");
+    const isIgnore = /INSERT\s+OR\s+IGNORE/i.test(sql);
 
-  // ---------------- SAFE MIGRATIONS ----------------
-  // These prevent crashes if columns already exist
+    // INSERT OR REPLACE -> ON CONFLICT (pk) DO UPDATE SET all non-pk cols = EXCLUDED.col
+    pgSql = pgSql.replace(/INSERT\s+OR\s+REPLACE\s+INTO/i, "INSERT INTO");
+    const isReplace = /INSERT\s+OR\s+REPLACE/i.test(sql);
 
-  const safeAddColumn = (name, type) => {
-    db.run(`ALTER TABLE users ADD COLUMN ${name} ${type}`, () => {});
+    if (isIgnore || isReplace) {
+      // Extract table name and columns to build ON CONFLICT clause
+      const tblMatch = sql.match(/INTO\s+(\w+)\s*\(([^)]+)\)/i);
+      if (tblMatch) {
+        const table = tblMatch[1];
+        const cols = tblMatch[2].split(",").map(c => c.trim());
+        if (isIgnore) {
+          // Simple: ON CONFLICT DO NOTHING works for any constraint
+          pgSql += " ON CONFLICT DO NOTHING";
+        } else {
+          // Find the PK column (first col that looks like a key)
+          const pkCol = cols[0];
+          const updateCols = cols.filter(c => c !== pkCol);
+          if (updateCols.length > 0) {
+            const setClause = updateCols.map(c => `${c} = EXCLUDED.${c}`).join(", ");
+            pgSql += ` ON CONFLICT (${pkCol}) DO UPDATE SET ${setClause}`;
+          } else {
+            pgSql += " ON CONFLICT (${pkCol}) DO NOTHING";
+          }
+        }
+      }
+    }
+
+    return { sql: pgSql, params };
+  }
+
+  function call(method, sql, params, cb) {
+    if (typeof params === "function") { cb = params; params = []; }
+    const { sql: pgSql, params: pgParams } = q(sql, params || []);
+    pool.query(pgSql, pgParams).then(r => {
+      if (cb) cb(null, method === "run" ? r : method === "get" ? r.rows[0] : r.rows);
+    }).catch(e => {
+      if (cb) cb(e);
+    });
+  }
+
+  db = {
+    run(sql, params, cb) { call("run", sql, params, cb); },
+    get(sql, params, cb) { call("get", sql, params, cb); },
+    all(sql, params, cb) { call("all", sql, params, cb); },
+    serialize(fn) { fn(); }
   };
-
-  safeAddColumn("dailyMessages", "INTEGER DEFAULT 0");
-  safeAddColumn("dailyVoice", "INTEGER DEFAULT 0");
-  safeAddColumn("larpStreak", "INTEGER DEFAULT 0");
-  safeAddColumn("larpWins", "INTEGER DEFAULT 0");
-
-});
+} else {
+  const sqlite3 = require("sqlite3").verbose();
+  const sdb = new sqlite3.Database("./data.db");
+  db = {
+    run(sql, params, cb) {
+      if (typeof params === "function") { cb = params; params = []; }
+      sdb.run(sql, params || [], cb);
+    },
+    get(sql, params, cb) {
+      if (typeof params === "function") { cb = params; params = []; }
+      sdb.get(sql, params || [], cb);
+    },
+    all(sql, params, cb) {
+      if (typeof params === "function") { cb = params; params = []; }
+      sdb.all(sql, params || [], cb);
+    },
+    serialize(fn) { sdb.serialize(fn); }
+  };
+}
 
 module.exports = db;

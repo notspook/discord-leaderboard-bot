@@ -3,20 +3,16 @@ const session = require("express-session");
 const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
-const sqlite3 = require("sqlite3").verbose();
+const db = require("./database");
 require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const PASSWORD = process.env.DASHBOARD_PASSWORD || "admin";
-const DB_PATH = path.join(__dirname, "data.db");
 
 let botProcess = null;
 let logs = [];
 const MAX_LOGS = 200;
-
-// Open DB directly in dashboard for admin queries
-const db = new sqlite3.Database(DB_PATH);
 
 function dbGet(sql, params = []) {
   return new Promise((res, rej) => db.get(sql, params, (e, r) => e ? rej(e) : res(r)));
