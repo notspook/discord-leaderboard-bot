@@ -5,12 +5,16 @@
   "main": "index.js",
   "scripts": {
     "start": "node dashboard.js",
+    "postinstall": "npm rebuild sqlite3 --build-from-source",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "engines": {
+    "node": "22.x"
+  },
   "dependencies": {
     "@discordjs/voice": "^0.19.2",
     "canvas": "^3.2.3",
