@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LARP Bot Dashboard</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0d0e10;color:#dcddde;font-family:'Inter',sans-serif;min-height:100vh}
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:220px;background:#1e1f22;border-right:1px solid #2b2d31;padding:20px 12px;display:flex;flex-direction:column;gap:4px}
+.sidebar .brand{font-size:16px;font-weight:700;color:#fff;padding:8px 12px;margin-bottom:12px}
+.sidebar .brand span{color:#5865f2}
+.nav-item{padding:9px 12px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;color:#b5bac1;transition:all .15s;display:flex;align-items:center;gap:10px}
+.nav-item:hover{background:#2b2d31;color:#dcddde}.nav-item.active{background:#404249;color:#fff}
+.sidebar .logout{margin-top:auto;color:#72767d}.sidebar .logout:hover{color:#f87171;background:#3d1f1f}
+.main{margin-left:220px;padding:32px}.page{display:none}.page.active{display:block}
+h2{font-size:20px;font-weight:700;color:#fff;margin-bottom:20px}
+h3{font-size:14px;font-weight:600;color:#b5bac1;text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px}
+.status-bar{background:#1e1f22;border:1px solid #2b2d31;border-radius:12px;padding:20px 24px;display:flex;align-items:center;gap:16px;margin-bottom:24px}
+.dot{width:10px;height:10px;border-radius:50%;background:#3ba55d;box-shadow:0 0 8px #3ba55d;flex-shrink:0}
+.dot.offline{background:#f87171;box-shadow:0 0 8px #f87171}
+.status-text{font-size:14px;font-weight:600;color:#fff}.status-sub{font-size:12px;color:#72767d;margin-left:auto}
+.btn-row{display:flex;gap:10px;margin-bottom:24px;flex-wrap:wrap}
+.btn{padding:9px 18px;border-radius:8px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:6px}
+.btn-green{background:#3ba55d;color:#fff}.btn-green:hover{background:#2d8049}
+.btn-red{background:#ed4245;color:#fff}.btn-red:hover{background:#c03537}
+.btn-yellow{background:#faa81a;color:#111}.btn-yellow:hover{background:#d4900e}
+.btn-blue{background:#5865f2;color:#fff}.btn-blue:hover{background:#4752c4}
+.btn-ghost{background:#2b2d31;color:#dcddde}.btn-ghost:hover{background:#404249}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.log-box{background:#111214;border:1px solid #2b2d31;border-radius:12px;padding:16px;height:420px;overflow-y:auto;font-family:'Courier New',monospace;font-size:12px;line-height:1.7;user-select:text;-webkit-user-select:text;cursor:text}
+.log-line{color:#72767d}.log-time{color:#404249;margin-right:8px}
+.log-line.bot{color:#dcddde}.log-line.warn{color:#faa81a}.log-line.error{color:#f87171}.log-line.start{color:#3ba55d}
+.card{background:#1e1f22;border:1px solid #2b2d31;border-radius:12px;padding:24px;margin-bottom:20px}
+.slider-row{display:flex;align-items:center;gap:16px}
+input[type=range]{flex:1;accent-color:#5865f2;height:4px}
+.slider-val{background:#2b2d31;border:1px solid #3b3d44;border-radius:6px;padding:4px 12px;font-size:14px;font-weight:600;color:#fff;min-width:52px;text-align:center}
+.response-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;max-height:400px;overflow-y:auto}
+.response-item{display:flex;align-items:center;gap:10px;background:#2b2d31;border-radius:8px;padding:8px 12px}
+.response-item span{flex:1;font-size:13px;color:#dcddde}
+.response-item button{background:none;border:none;color:#72767d;cursor:pointer;font-size:16px;padding:2px 6px;border-radius:4px;transition:all .15s}
+.response-item button:hover{color:#f87171;background:#3d1f1f}
+.add-row{display:flex;gap:10px;margin-top:8px}
+input[type=text],textarea{background:#2b2d31;border:1px solid #3b3d44;border-radius:8px;padding:9px 12px;color:#dcddde;font-size:13px;outline:none;transition:border .2s;width:100%}
+input[type=text]:focus,textarea:focus{border-color:#5865f2}
+textarea{resize:vertical;min-height:100px;font-family:'Inter',sans-serif;line-height:1.5}
+.user-table{width:100%;border-collapse:collapse}
+.user-table th{text-align:left;font-size:11px;font-weight:600;color:#72767d;text-transform:uppercase;letter-spacing:.5px;padding:8px 12px;border-bottom:1px solid #2b2d31}
+.user-table td{padding:10px 12px;font-size:13px;border-bottom:1px solid #1a1b1e;vertical-align:middle}
+.user-table tr:hover td{background:#1a1b1e}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.badge-green{background:#1a3a2a;color:#3ba55d}
+.badge-blue{background:#1a1f3a;color:#5865f2}
+.badge-red{background:#3d1f1f;color:#f87171}
+.badge-gray{background:#2b2d31;color:#72767d}
+.color-dot{width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:6px;border:1px solid rgba(255,255,255,.1)}
+.section-tabs{display:flex;gap:8px;margin-bottom:20px}
+.tab{padding:7px 16px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;background:#2b2d31;color:#b5bac1;border:none;transition:all .15s}
+.tab.active{background:#5865f2;color:#fff}
+.empty{color:#72767d;font-size:13px;padding:16px 0}
+.toast{position:fixed;bottom:24px;right:24px;background:#3ba55d;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:600;opacity:0;transform:translateY(8px);transition:all .3s;z-index:999}
+.toast.show{opacity:1;transform:translateY(0)}.toast.error{background:#ed4245}
+.dm-editor{display:flex;flex-direction:column;gap:16px}
+.dm-block label{font-size:12px;font-weight:600;color:#b5bac1;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px}
+</style></head><body>
+
+<div class="sidebar">
+  <div class="brand">🏆 <span>LARP</span> Bot</div>
+  <div class="nav-item active" onclick="showPage('control',this)">⚡ Control</div>
+  <div class="nav-item" onclick="showPage('logs',this)">📋 Logs</div>
+  <div class="nav-item" onclick="showPage('responses',this)">💬 Responses</div>
+  <div class="nav-item" onclick="showPage('booster',this)">💎 Booster Roles</div>
+  <div class="nav-item" onclick="showPage('dms',this)">✉️ DM Messages</div>
+  <div class="nav-item" onclick="showPage('imagemod',this)">🖼 Image Channels</div>
+  <div class="nav-item" onclick="showPage('senddm',this)">📨 Send DM</div>
+  <div class="nav-item" onclick="showPage('inbox',this)">📥 DM Inbox</div>
+  <div class="nav-item" onclick="showPage('mod',this)">🛡️ Moderation</div>
+  <div class="nav-item logout" onclick="location.href='/logout'">🚪 Logout</div>
+</div>
+
+<div class="main">
+
+<!-- CONTROL -->
+<div class="page active" id="page-control">
+  <h2>Bot Control</h2>
+  <div class="status-bar">
+    <div class="dot" id="status-dot"></div>
+    <div class="status-text" id="status-text">Loading...</div>
+    <div class="status-sub" id="status-sub"></div>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-green" onclick="botAction('start')">▶ Start</button>
+    <button class="btn btn-red" onclick="botAction('stop')">■ Stop</button>
+    <button class="btn btn-yellow" onclick="botAction('restart')">↺ Restart</button>
+  </div>
+  <div class="card">
+    <h3>Random Reply Chance</h3>
+    <div class="slider-row">
+      <input type="range" id="chance-slider" min="0" max="30" step="1" value="5" oninput="updateChanceDisplay(this.value)">
+      <div class="slider-val" id="chance-display">5%</div>
+    </div>
+    <p style="font-size:12px;color:#72767d;margin-top:10px">How often the bot randomly replies to messages without being pinged</p>
+    <button class="btn btn-blue" style="margin-top:14px" onclick="saveChance()">Save</button>
+  </div>
+</div>
+
+<!-- LOGS -->
+<div class="page" id="page-logs">
+  <h2>Live Logs</h2>
+  <div class="btn-row">
+    <button class="btn btn-blue" onclick="fetchLogs()">↻ Refresh</button>
+    <button class="btn btn-red" onclick="clearLogs()">🗑 Clear</button>
+  </div>
+  <div class="log-box" id="log-box">Loading...</div>
+</div>
+
+<!-- RESPONSES -->
+<div class="page" id="page-responses">
+  <h2>Response Editor</h2>
+  <div class="card">
+    <h3>Current Responses</h3>
+    <div class="response-list" id="response-list"></div>
+    <div class="add-row">
+      <input type="text" id="new-response" placeholder="Add a new response..." onkeydown="if(event.key==='Enter')addResponse()">
+      <button class="btn btn-blue" onclick="addResponse()">Add</button>
+    </div>
+  </div>
+  <button class="btn btn-green" onclick="saveResponses()">💾 Save Responses</button>
+</div>
+
+<!-- BOOSTER ROLES -->
+<div class="page" id="page-booster">
+  <h2>💎 Booster Role Manager</h2>
+
+  <div class="section-tabs">
+    <button class="tab active" onclick="switchBoosterTab('active',this)">Active Roles</button>
+    <button class="tab" onclick="switchBoosterTab('whitelist',this)">Whitelist</button>
+    <button class="tab" onclick="switchBoosterTab('blacklist',this)">Blacklist</button>
+  </div>
+
+  <!-- Active Roles -->
+  <div id="booster-tab-active">
+    <div class="card">
+      <h3>Current Booster Roles</h3>
+      <div id="active-roles-list"><div class="empty">Loading...</div></div>
+    </div>
+  </div>
+
+  <!-- Whitelist -->
+  <div id="booster-tab-whitelist" style="display:none">
+    <div class="card">
+      <h3>Whitelisted Users</h3>
+      <p style="font-size:12px;color:#72767d;margin-bottom:16px">These users can use !boosterrole even without boosting.</p>
+      <div id="whitelist-list"><div class="empty">Loading...</div></div>
+      <div class="add-row" style="margin-top:16px">
+        <input type="text" id="whitelist-input" placeholder="Discord User ID">
+        <input type="text" id="whitelist-note" placeholder="Note (optional)" style="max-width:200px">
+        <button class="btn btn-blue" onclick="addWhitelist()">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Blacklist -->
+  <div id="booster-tab-blacklist" style="display:none">
+    <div class="card">
+      <h3>Blacklisted Users</h3>
+      <p style="font-size:12px;color:#72767d;margin-bottom:16px">These users cannot use !boosterrole even if they are boosting.</p>
+      <div id="blacklist-list"><div class="empty">Loading...</div></div>
+      <div class="add-row" style="margin-top:16px">
+        <input type="text" id="blacklist-input" placeholder="Discord User ID">
+        <input type="text" id="blacklist-note" placeholder="Note (optional)" style="max-width:200px">
+        <button class="btn btn-red" onclick="addBlacklist()">Blacklist</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DM MESSAGES -->
+<div class="page" id="page-dms">
+  <h2>✉️ DM Message Editor</h2>
+  <div class="card" style="margin-bottom:16px">
+    <h3>Auto-Reply</h3>
+    <div style="display:flex;align-items:center;gap:16px">
+      <p style="font-size:13px;color:#b5bac1;flex:1">When enabled, the bot automatically replies to anyone who DMs it with the message below.</p>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none">
+        <span style="font-size:13px;font-weight:600;color:#dcddde" id="auto-reply-label">Enabled</span>
+        <div style="position:relative;width:44px;height:24px" onclick="toggleAutoReply()">
+          <input type="checkbox" id="auto-reply-toggle" style="opacity:0;position:absolute;width:0;height:0">
+          <div id="auto-reply-track" style="width:44px;height:24px;border-radius:12px;background:#3ba55d;transition:background .2s;cursor:pointer"></div>
+          <div id="auto-reply-thumb" style="position:absolute;top:3px;left:22px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .2s;cursor:pointer"></div>
+        </div>
+      </label>
+    </div>
+  </div>
+  <div class="card dm-editor">
+    <div class="dm-block">
+      <label>Boost Welcome DM</label>
+      <p style="font-size:12px;color:#72767d;margin-bottom:8px">Sent when someone boosts the server for the first time.</p>
+      <textarea id="dm-boost-welcome" rows="8"></textarea>
+    </div>
+    <div class="dm-block">
+      <label>Boost Removed DM</label>
+      <p style="font-size:12px;color:#72767d;margin-bottom:8px">Sent when a boost expires and their custom role is removed.</p>
+      <textarea id="dm-boost-removed" rows="4"></textarea>
+    </div>
+    <div class="dm-block">
+      <label>Auto-Reply DM</label>
+      <p style="font-size:12px;color:#72767d;margin-bottom:8px">Sent when someone DMs the bot directly (if auto-reply is enabled).</p>
+      <textarea id="dm-auto-reply" rows="4"></textarea>
+    </div>
+    <button class="btn btn-green" style="width:fit-content" onclick="saveDMs()">💾 Save All DM Messages</button>
+  </div>
+</div>
+
+<!-- IMAGE MOD -->
+<div class="page" id="page-imagemod">
+  <h2>🖼 Image-Only Channels</h2>
+  <div class="card">
+    <h3>Moderated Channels</h3>
+    <p style="font-size:12px;color:#72767d;margin-bottom:16px">Messages without images or video attachments are silently deleted and the user gets a dismissable warning. Admins are always exempt.</p>
+    <div id="imagemod-list"><div class="empty">Loading...</div></div>
+    <div class="add-row" style="margin-top:16px">
+      <input type="text" id="imagemod-channel-id" placeholder="Channel ID">
+      <input type="text" id="imagemod-label" placeholder="Label (e.g. reveal-1)" style="max-width:220px">
+      <button class="btn btn-blue" onclick="addImageChannel()">Add Channel</button>
+    </div>
+  </div>
+</div>
+
+<!-- SEND DM -->
+<div class="page" id="page-senddm">
+  <h2>📨 Send DM</h2>
+  <div class="card">
+    <h3>Direct Message a User</h3>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div>
+        <label style="font-size:12px;font-weight:600;color:#b5bac1;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px">User ID</label>
+        <input type="text" id="dm-target-id" placeholder="Discord User ID">
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:600;color:#b5bac1;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px">Message</label>
+        <textarea id="dm-custom-message" rows="6" placeholder="Type your message..."></textarea>
+      </div>
+      <button class="btn btn-blue" style="width:fit-content" onclick="sendManualDM()">📨 Send DM</button>
+    </div>
+  </div>
+</div>
+
+<!-- DM INBOX -->
+<div class="page" id="page-inbox">
+  <h2>📥 DM Inbox</h2>
+  <div class="btn-row">
+    <button class="btn btn-blue" onclick="fetchInbox()">↻ Refresh</button>
+    <button class="btn btn-ghost" onclick="markAllInboxRead()">✓ Mark All Read</button>
+  </div>
+  <div id="inbox-list"><div class="empty">Loading...</div></div>
+
+  <!-- Reply panel (hidden until a message is clicked) -->
+  <div id="inbox-reply-panel" style="display:none;position:fixed;bottom:0;left:220px;right:0;background:#1e1f22;border-top:1px solid #2b2d31;padding:16px 24px;z-index:100">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+      <span style="font-size:13px;color:#b5bac1">Replying to <strong id="reply-to-name" style="color:#fff"></strong></span>
+      <button class="btn btn-ghost" style="padding:3px 10px;font-size:12px;margin-left:auto" onclick="closeReplyPanel()">✕ Close</button>
+    </div>
+    <div style="display:flex;gap:10px">
+      <textarea id="inbox-reply-text" rows="3" placeholder="Type your reply..." style="flex:1;resize:none"></textarea>
+      <button class="btn btn-blue" style="align-self:flex-end" onclick="sendInboxReply()">Send</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODERATION -->
+<div class="page" id="page-mod">
+  <h2>🛡️ Moderation</h2>
+
+  <!-- Raid Mode -->
+  <div class="card" style="margin-bottom:16px;border-color:#ed4245">
+    <h3 style="color:#f87171">⚡ Raid Mode</h3>
+    <p style="font-size:13px;color:#b5bac1;margin-bottom:14px">When enabled, any account newer than the minimum age that joins the server is automatically kicked. The bot will also alert this channel when a join spike is detected.</p>
+    <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none">
+        <span style="font-size:13px;font-weight:600;color:#dcddde" id="raid-mode-label">OFF</span>
+        <div style="position:relative;width:44px;height:24px" onclick="toggleRaidMode()">
+          <div id="raid-mode-track" style="width:44px;height:24px;border-radius:12px;background:#ed4245;transition:background .2s;cursor:pointer;opacity:.4"></div>
+          <div id="raid-mode-thumb" style="position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .2s;cursor:pointer"></div>
+        </div>
+      </label>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:13px;color:#b5bac1">Min account age:</span>
+        <input type="number" id="raid-age-input" value="7" min="1" max="365" style="width:70px;padding:6px 10px">
+        <span style="font-size:13px;color:#72767d">days</span>
+        <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px" onclick="saveRaidAge()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Ban -->
+  <div class="card" style="margin-bottom:16px">
+    <h3>🔨 Quick Ban</h3>
+    <p style="font-size:12px;color:#72767d;margin-bottom:14px">Bans a user and deletes their last 7 days of messages. You can ban multiple users at once — one ID per line.</p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <textarea id="ban-ids" rows="4" placeholder="Discord User IDs — one per line&#10;e.g.&#10;123456789012345678&#10;987654321098765432"></textarea>
+      <input type="text" id="ban-reason" placeholder="Reason (e.g. Raid, Spam)" style="max-width:400px">
+      <button class="btn btn-red" style="width:fit-content" onclick="quickBan()">🔨 Ban All + Delete 7 Days Messages</button>
+    </div>
+  </div>
+
+  <!-- Recent Members -->
+  <div class="card" style="margin-bottom:16px">
+    <h3>🕐 Recent Joins</h3>
+    <p style="font-size:12px;color:#72767d;margin-bottom:14px">Most recently joined members. Useful for identifying raid accounts.</p>
+    <div id="recent-joins-list"><div class="empty">Loading...</div></div>
+    <button class="btn btn-ghost" style="margin-top:12px;font-size:12px" onclick="fetchRecentJoins()">↻ Refresh</button>
+  </div>
+
+  <!-- Ban Log -->
+  <div class="card">
+    <h3>📋 Ban Log</h3>
+    <div id="ban-log-list"><div class="empty">Loading...</div></div>
+  </div>
+</div>
+
+</div><!-- end .main -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+let currentResponses = [];
+let logInterval, statusInterval;
+let currentBoosterTab = 'active';
+
+function showPage(name, el) {
+  try {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    const pg = document.getElementById('page-' + name);
+    if (!pg) { console.error('Missing page element: page-' + name); return; }
+    pg.classList.add('active');
+    if (el) el.classList.add('active');
+  clearInterval(logInterval);
+  if (name === 'logs') { fetchLogs().catch(()=>{}); logInterval = setInterval(() => fetchLogs().catch(()=>{}), 3000); }
+  if (name === 'responses') fetchResponses().catch(()=>{});
+  if (name === 'booster') fetchBoosterData().catch(()=>{});
+  if (name === 'dms') fetchDMs().catch(()=>{});
+  if (name === 'imagemod') fetchImageChannels().catch(()=>{});
+  if (name === 'inbox') fetchInbox().catch(()=>{});
+  if (name === 'mod') { fetchRecentJoins().catch(()=>{}); fetchBanLog().catch(()=>{}); fetchModSettings().catch(()=>{}); }
+  } catch(e) { console.error('showPage error:', e); }
+}
+
+function toast(msg, err) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (err ? ' error' : '');
+  setTimeout(() => t.className = 'toast', 2800);
+}
+
+// ---- STATUS ----
+async function fetchStatus() {
+  try {
+    const r = await fetch('/api/status').then(r => r.json());
+    document.getElementById('status-dot').className = 'dot' + (r.running ? '' : ' offline');
+    document.getElementById('status-text').textContent = r.running ? 'Bot Online' : 'Bot Offline';
+    document.getElementById('status-sub').textContent = r.running ? 'Running normally' : 'Not running';
+  } catch(e) {
+    document.getElementById('status-dot').className = 'dot offline';
+    document.getElementById('status-text').textContent = 'Connection Error';
+    document.getElementById('status-sub').textContent = String(e.message || e);
+  }
+}
+fetchStatus();
+statusInterval = setInterval(fetchStatus, 5000);
+
+async function botAction(action) {
+  await fetch('/api/bot/' + action, { method: 'POST' });
+  toast(action === 'start' ? 'Bot started' : action === 'stop' ? 'Bot stopped' : 'Bot restarting...');
+  setTimeout(fetchStatus, 1500);
+}
+
+// ---- LOGS ----
+async function fetchLogs() {
+  const r = await fetch('/api/logs').then(r => r.json());
+  const box = document.getElementById('log-box');
+  const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
+  box.innerHTML = r.logs.map(l => {
+    let cls = 'log-line';
+    if (l.text.startsWith('⚡')||l.text.startsWith('✅')||l.text.startsWith('🔥')) cls += ' start';
+    else if (l.text.startsWith('⚠')) cls += ' warn';
+    else if (l.text.toLowerCase().includes('error')) cls += ' error';
+    else cls += ' bot';
+    return `<div class="${cls}"><span class="log-time">${l.time}</span>${escHtml(l.text)}</div>`;
+  }).join('') || '<div class="log-line">No logs yet</div>';
+  if (atBottom) box.scrollTop = box.scrollHeight;
+}
+async function clearLogs() {
+  await fetch('/api/logs/clear', { method: 'POST' });
+  fetchLogs(); toast('Logs cleared');
+}
+
+// ---- CHANCE ----
+async function fetchChance() {
+  try {
+    const r = await fetch('/api/chance').then(r => r.json());
+    const pct = Math.round(r.chance * 100);
+    document.getElementById('chance-slider').value = pct;
+    document.getElementById('chance-display').textContent = pct + '%';
+  } catch(e) { /* non-fatal, slider stays at default */ }
+}
+function updateChanceDisplay(val) { document.getElementById('chance-display').textContent = val + '%'; }
+async function saveChance() {
+  const val = parseInt(document.getElementById('chance-slider').value) / 100;
+  await fetch('/api/chance', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ chance: val }) });
+  toast('Reply chance saved — restart bot to apply');
+}
+
+// ---- RESPONSES ----
+async function fetchResponses() {
+  const r = await fetch('/api/responses').then(r => r.json());
+  currentResponses = r.responses; renderResponses();
+}
+function renderResponses() {
+  document.getElementById('response-list').innerHTML = currentResponses.map((resp, i) =>
+    `<div class="response-item"><span>${escHtml(resp)}</span><button onclick="removeResponse(${i})">✕</button></div>`
+  ).join('');
+}
+function removeResponse(i) { currentResponses.splice(i, 1); renderResponses(); }
+function addResponse() {
+  const input = document.getElementById('new-response');
+  if (!input.value.trim()) return;
+  currentResponses.push(input.value.trim());
+  renderResponses(); input.value = '';
+}
+async function saveResponses() {
+  await fetch('/api/responses', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ responses: currentResponses }) });
+  toast('Responses saved — restart bot to apply');
+}
+
+// ---- BOOSTER ROLES ----
+function switchBoosterTab(tab, el) {
+  currentBoosterTab = tab;
+  ['active','whitelist','blacklist'].forEach(t => {
+    document.getElementById('booster-tab-' + t).style.display = t === tab ? 'block' : 'none';
+  });
+  document.querySelectorAll('.section-tabs .tab').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+async function fetchBoosterData() {
+  let r;
+  try {
+    r = await fetch('/api/booster').then(r => r.json());
+  } catch(e) {
+    console.error('fetchBoosterData failed:', e);
+    document.getElementById('active-roles-list').innerHTML = '<div class="empty">Failed to load — check console.</div>';
+    return;
+  }
+
+  const names = r.names || {};
+  function userCell(id) {
+    const n = names[id];
+    return n
+      ? '<td><span style="color:#dcddde;font-weight:600">' + escHtml(n) + '</span><br><code style="font-size:11px;color:#72767d">' + id + '</code></td>'
+      : '<td><code>' + id + '</code></td>';
+  }
+  function makeTable(headers, rows) {
+    return '<table class="user-table"><thead><tr>' + headers.map(function(h){return '<th>'+h+'</th>';}).join('') + '</tr></thead><tbody>' + rows + '</tbody></table>';
+  }
+
+  // Active roles
+  const activeEl = document.getElementById('active-roles-list');
+  if (!r.active.length) {
+    activeEl.innerHTML = '<div class="empty">No active booster roles yet.</div>';
+  } else {
+    const activeRows = r.active.map(function(row) {
+      const shared = JSON.parse(row.sharedWith || '[]');
+      const sharedCell = shared.length
+        ? shared.map(function(id){ const n=names[id]; return n?'<span title="'+id+'">'+escHtml(n)+'</span>':'<code>'+id+'</code>'; }).join(', ')
+        : '<span style="color:#72767d">none</span>';
+      return '<tr>' + userCell(row.userId) +
+        '<td><code>' + row.roleId + '</code></td>' +
+        '<td>' + sharedCell + '</td>' +
+        '<td><button class="btn btn-red" style="padding:4px 10px;font-size:12px" onclick="removeActiveRole(\'' + row.userId + '\')">Remove</button></td></tr>';
+    }).join('');
+    activeEl.innerHTML = makeTable(['User','Role ID','Shared With','Action'], activeRows);
+  }
+
+  // Whitelist
+  const wlEl = document.getElementById('whitelist-list');
+  if (!r.whitelist.length) {
+    wlEl.innerHTML = '<div class="empty">No whitelisted users.</div>';
+  } else {
+    const wlRows = r.whitelist.map(function(row) {
+      return '<tr>' + userCell(row.userId) +
+        '<td>' + escHtml(row.note || '') + '</td>' +
+        '<td><button class="btn btn-ghost" style="padding:4px 10px;font-size:12px" onclick="removeWhitelist(\'' + row.userId + '\')">Remove</button></td></tr>';
+    }).join('');
+    wlEl.innerHTML = makeTable(['User','Note','Action'], wlRows);
+  }
+
+  // Blacklist
+  const blEl = document.getElementById('blacklist-list');
+  if (!r.blacklist.length) {
+    blEl.innerHTML = '<div class="empty">No blacklisted users.</div>';
+  } else {
+    const blRows = r.blacklist.map(function(row) {
+      return '<tr>' + userCell(row.userId) +
+        '<td>' + escHtml(row.note || '') + '</td>' +
+        '<td><button class="btn btn-ghost" style="padding:4px 10px;font-size:12px" onclick="removeBlacklist(\'' + row.userId + '\')">Remove</button></td></tr>';
+    }).join('');
+    blEl.innerHTML = makeTable(['User','Note','Action'], blRows);
+  }
+}
+
+async function addWhitelist() {
+  const id = document.getElementById('whitelist-input').value.trim();
+  const note = document.getElementById('whitelist-note').value.trim();
+  if (!id) return toast('Enter a user ID', true);
+  await fetch('/api/booster/whitelist', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ userId: id, note }) });
+  document.getElementById('whitelist-input').value = '';
+  document.getElementById('whitelist-note').value = '';
+  fetchBoosterData(); toast('Added to whitelist');
+}
+async function removeWhitelist(id) {
+  await fetch('/api/booster/whitelist/' + id, { method:'DELETE' });
+  fetchBoosterData(); toast('Removed from whitelist');
+}
+async function addBlacklist() {
+  const id = document.getElementById('blacklist-input').value.trim();
+  const note = document.getElementById('blacklist-note').value.trim();
+  if (!id) return toast('Enter a user ID', true);
+  await fetch('/api/booster/blacklist', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ userId: id, note }) });
+  document.getElementById('blacklist-input').value = '';
+  document.getElementById('blacklist-note').value = '';
+  fetchBoosterData(); toast('Added to blacklist');
+}
+async function removeBlacklist(id) {
+  await fetch('/api/booster/blacklist/' + id, { method:'DELETE' });
+  fetchBoosterData(); toast('Removed from blacklist');
+}
+async function removeActiveRole(userId) {
+  if (!confirm("Remove this user's booster role?")) return;
+  await fetch('/api/booster/role/' + userId, { method:'DELETE' });
+  fetchBoosterData(); toast('Role removed');
+}
+
+// ---- DM MESSAGES ----
+async function saveDMs() {
+  const body = {
+    dm_boost_welcome: document.getElementById('dm-boost-welcome').value,
+    dm_boost_removed: document.getElementById('dm-boost-removed').value,
+    dm_auto_reply: document.getElementById('dm-auto-reply').value
+  };
+  await fetch('/api/dms', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+  toast('DM messages saved — takes effect immediately');
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ---- IMAGE ONLY CHANNELS ----
+async function fetchImageChannels() {
+  let r;
+  try {
+    r = await fetch('/api/imagemod').then(r => r.json());
+  } catch(e) {
+    console.error('fetchImageChannels failed:', e);
+    document.getElementById('imagemod-list').innerHTML = '<div class="empty">Failed to load.</div>';
+    return;
+  }
+  const el = document.getElementById('imagemod-list');
+  if (!r.channels.length) {
+    el.innerHTML = '<div class="empty">No image-only channels configured.</div>';
+    return;
+  }
+  el.innerHTML = `<table class="user-table">
+    <thead><tr><th>Channel</th><th>Channel ID</th><th>Label</th><th>Action</th></tr></thead>
+    <tbody>${r.channels.map(ch => `<tr>
+      <td style="color:#5865f2;font-weight:600">${ch.name ? escHtml('#' + ch.name) : '<span style="color:#72767d">unknown</span>'}</td>
+      <td><code>${ch.channelId}</code></td>
+      <td>${escHtml(ch.label || '')}</td>
+      <td><button class="btn btn-red" style="padding:4px 10px;font-size:12px" onclick="removeImageChannel('${ch.channelId}')">Remove</button></td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+async function addImageChannel() {
+  const channelId = document.getElementById('imagemod-channel-id').value.trim();
+  const label = document.getElementById('imagemod-label').value.trim();
+  if (!channelId) return toast('Enter a channel ID', true);
+  await fetch('/api/imagemod', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ channelId, label }) });
+  document.getElementById('imagemod-channel-id').value = '';
+  document.getElementById('imagemod-label').value = '';
+  fetchImageChannels(); toast('Channel added');
+}
+async function removeImageChannel(channelId) {
+  await fetch('/api/imagemod/' + channelId, { method:'DELETE' });
+  fetchImageChannels(); toast('Channel removed');
+}
+
+// ---- DM INBOX ----
+let currentReplyUserId = null;
+let currentReplyUsername = null;
+
+async function fetchInbox() {
+  const r = await fetch('/api/inbox').then(r => r.json());
+  const el = document.getElementById('inbox-list');
+  if (!r.messages.length) {
+    el.innerHTML = '<div class="empty">No DMs yet.</div>';
+    return;
+  }
+  el.innerHTML = `<table class="user-table">
+    <thead><tr><th>User</th><th>Message</th><th>Time</th><th>Actions</th></tr></thead>
+    <tbody>${r.messages.map(m => `<tr style="${m.read ? '' : 'background:#1a2035'}">
+      <td>
+        ${m.read ? '' : '<span class="badge badge-blue" style="margin-right:6px;font-size:10px">NEW</span>'}
+        <code style="font-size:12px">${escHtml(m.username)}</code><br>
+        <span style="font-size:11px;color:#72767d">${m.userId}</span>
+      </td>
+      <td style="max-width:340px;white-space:pre-wrap;word-break:break-word">${escHtml(m.content)}</td>
+      <td style="white-space:nowrap;color:#72767d;font-size:12px">${new Date(m.timestamp).toLocaleString()}</td>
+      <td>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-blue" style="padding:4px 10px;font-size:12px" onclick="openReplyPanel('${m.userId}', '${escHtml(m.username)}')">Reply</button>
+          <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px" onclick="markInboxRead(${m.id})">✓</button>
+          <button class="btn btn-red" style="padding:4px 10px;font-size:12px" onclick="deleteInboxMsg(${m.id})">🗑</button>
+        </div>
+      </td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+function openReplyPanel(userId, username) {
+  currentReplyUserId = userId;
+  currentReplyUsername = username;
+  document.getElementById('reply-to-name').textContent = username;
+  document.getElementById('inbox-reply-panel').style.display = 'block';
+  document.getElementById('inbox-reply-text').focus();
+}
+
+function closeReplyPanel() {
+  document.getElementById('inbox-reply-panel').style.display = 'none';
+  currentReplyUserId = null;
+  document.getElementById('inbox-reply-text').value = '';
+}
+
+async function sendInboxReply() {
+  if (!currentReplyUserId) return;
+  const message = document.getElementById('inbox-reply-text').value.trim();
+  if (!message) return toast('Enter a message', true);
+  const r = await fetch('/api/dm/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId: currentReplyUserId, message })
+  }).then(r => r.json());
+  if (r.ok) { toast('Reply sent!'); closeReplyPanel(); }
+  else toast('Failed: ' + r.error, true);
+}
+
+async function markInboxRead(id) {
+  await fetch('/api/inbox/' + id + '/read', { method: 'POST' });
+  fetchInbox();
+}
+
+async function markAllInboxRead() {
+  await fetch('/api/inbox/read-all', { method: 'POST' });
+  fetchInbox(); toast('All marked as read');
+}
+
+async function deleteInboxMsg(id) {
+  await fetch('/api/inbox/' + id, { method: 'DELETE' });
+  fetchInbox();
+}
+
+// ---- AUTO REPLY TOGGLE ----
+async function fetchDMs() {
+  const r = await fetch('/api/dms').then(r => r.json());
+  document.getElementById('dm-boost-welcome').value = r.dm_boost_welcome || '';
+  document.getElementById('dm-boost-removed').value = r.dm_boost_removed || '';
+  document.getElementById('dm-auto-reply').value = r.dm_auto_reply || '';
+  // Load toggle state
+  const s = await fetch('/api/mod/settings').then(r => r.json());
+  setAutoReplyToggle(s.auto_reply_enabled !== '0');
+}
+
+function setAutoReplyToggle(enabled) {
+  document.getElementById('auto-reply-track').style.background = enabled ? '#3ba55d' : '#4f545c';
+  document.getElementById('auto-reply-thumb').style.left = enabled ? '22px' : '3px';
+  document.getElementById('auto-reply-label').textContent = enabled ? 'Enabled' : 'Disabled';
+}
+
+async function toggleAutoReply() {
+  const r = await fetch('/api/mod/settings').then(r => r.json());
+  const current = r.auto_reply_enabled !== '0';
+  const next = !current;
+  await fetch('/api/mod/settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ auto_reply_enabled: next ? '1' : '0' })
+  });
+  setAutoReplyToggle(next);
+  toast('Auto-reply ' + (next ? 'enabled' : 'disabled'));
+}
+
+// ---- MOD SETTINGS ----
+async function fetchModSettings() {
+  const r = await fetch('/api/mod/settings').then(r => r.json());
+  const raidOn = r.raid_mode === '1';
+  setRaidModeToggle(raidOn);
+  document.getElementById('raid-age-input').value = r.raid_account_age_days || '7';
+}
+
+function setRaidModeToggle(on) {
+  document.getElementById('raid-mode-track').style.opacity = on ? '1' : '.4';
+  document.getElementById('raid-mode-thumb').style.left = on ? '22px' : '3px';
+  document.getElementById('raid-mode-label').textContent = on ? '🔴 ON' : 'OFF';
+}
+
+async function toggleRaidMode() {
+  const r = await fetch('/api/mod/settings').then(r => r.json());
+  const current = r.raid_mode === '1';
+  const next = !current;
+  if (next && !confirm('Enable Raid Mode? New accounts will be auto-kicked when they join.')) return;
+  await fetch('/api/mod/settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ raid_mode: next ? '1' : '0' })
+  });
+  setRaidModeToggle(next);
+  toast('Raid mode ' + (next ? 'ENABLED' : 'disabled'));
+}
+
+async function saveRaidAge() {
+  const age = document.getElementById('raid-age-input').value;
+  await fetch('/api/mod/settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ raid_account_age_days: age })
+  });
+  toast('Min account age saved');
+}
+
+// ---- QUICK BAN ----
+async function quickBan() {
+  const raw = document.getElementById('ban-ids').value.trim();
+  const reason = document.getElementById('ban-reason').value.trim() || 'Banned via dashboard';
+  if (!raw) return toast('Enter at least one user ID', true);
+  const ids = raw.split(/[\n,\s]+/).map(s => s.trim()).filter(Boolean);
+  if (!ids.length) return toast('No valid IDs found', true);
+  if (!confirm(`Ban ${ids.length} user(s) and delete their last 7 days of messages?`)) return;
+  const r = await fetch('/api/mod/ban', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userIds: ids, reason })
+  }).then(r => r.json());
+  const ok = r.results.filter(x => x.ok).length;
+  const fail = r.results.filter(x => !x.ok).length;
+  document.getElementById('ban-ids').value = '';
+  document.getElementById('ban-reason').value = '';
+  toast(`Banned ${ok} user(s)${fail ? ', ' + fail + ' failed' : ''}`, fail > 0 && ok === 0);
+  fetchBanLog();
+}
+
+// ---- RECENT JOINS ----
+async function fetchRecentJoins() {
+  const r = await fetch('/api/mod/recent-joins').then(r => r.json());
+  const el = document.getElementById('recent-joins-list');
+  if (!r.members.length) { el.innerHTML = '<div class="empty">No recent joins found.</div>'; return; }
+  el.innerHTML = `<table class="user-table">
+    <thead><tr><th>User</th><th>Account Age</th><th>Joined Server</th><th>Action</th></tr></thead>
+    <tbody>${r.members.map(m => `<tr>
+      <td>
+        <span style="color:#dcddde;font-weight:600">${escHtml(m.username)}</span><br>
+        <span style="font-size:11px;color:#72767d">${m.userId}</span>
+      </td>
+      <td style="${m.accountAgeDays < 7 ? 'color:#f87171;font-weight:600' : 'color:#dcddde'}">${m.accountAgeDays} days${m.accountAgeDays < 7 ? ' ⚠️' : ''}</td>
+      <td style="font-size:12px;color:#72767d">${new Date(m.joinedAt).toLocaleString()}</td>
+      <td><button class="btn btn-red" style="padding:4px 10px;font-size:12px" onclick="quickBanOne('${m.userId}', '${escHtml(m.username)}')">🔨 Ban</button></td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+async function quickBanOne(userId, username) {
+  if (!confirm(`Ban ${username} and delete their last 7 days of messages?`)) return;
+  const r = await fetch('/api/mod/ban', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userIds: [userId], reason: 'Banned via dashboard' })
+  }).then(r => r.json());
+  if (r.results[0]?.ok) { toast('Banned ' + username); fetchRecentJoins(); fetchBanLog(); }
+  else toast('Ban failed: ' + (r.results[0]?.error || 'unknown'), true);
+}
+
+// ---- BAN LOG ----
+async function fetchBanLog() {
+  const r = await fetch('/api/mod/bans').then(r => r.json());
+  const el = document.getElementById('ban-log-list');
+  if (!r.bans.length) { el.innerHTML = '<div class="empty">No bans logged yet.</div>'; return; }
+  el.innerHTML = `<table class="user-table">
+    <thead><tr><th>User ID</th><th>Reason</th><th>Banned At</th><th>Action</th></tr></thead>
+    <tbody>${r.bans.map(b => `<tr>
+      <td><code>${b.userId}</code></td>
+      <td style="color:#b5bac1">${escHtml(b.reason || '')}</td>
+      <td style="font-size:12px;color:#72767d">${new Date(b.bannedAt).toLocaleString()}</td>
+      <td><button class="btn btn-ghost" style="padding:4px 10px;font-size:12px" onclick="unbanUser('${b.userId}')">Unban</button></td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+async function unbanUser(userId) {
+  if (!confirm('Unban ' + userId + '?')) return;
+  const r = await fetch('/api/mod/unban/' + userId, { method: 'POST' }).then(r => r.json());
+  if (r.ok) { toast('Unbanned'); fetchBanLog(); }
+  else toast('Unban failed: ' + r.error, true);
+}
+
+// ---- SEND DM ----
+async function sendManualDM() {
+  const userId = document.getElementById('dm-target-id').value.trim();
+  const message = document.getElementById('dm-custom-message').value.trim();
+  if (!userId) return toast('Enter a user ID', true);
+  if (!message) return toast('Enter a message', true);
+  const r = await fetch('/api/dm/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, message })
+  }).then(r => r.json());
+  if (r.ok) { toast('DM sent!'); document.getElementById('dm-custom-message').value = ''; }
+  else toast('Failed: ' + r.error, true);
+}
+
+fetchChance().catch(()=>{});
+</script>
