@@ -11,7 +11,9 @@ if (isPG) {
     let pgSql = sql
       .replace(/\?/g, () => `$${++idx}`)
       .replace(/INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT/gi, "SERIAL PRIMARY KEY")
-      .replace(/AUTOINCREMENT/gi, "");
+      .replace(/AUTOINCREMENT/gi, "")
+      .replace(/\blastjoin\s+INTEGER\b/gi, "lastjoin BIGINT")
+      .replace(/\bbannedat\s+INTEGER\b/gi, "bannedat BIGINT");
 
     // INSERT OR IGNORE -> ON CONFLICT DO NOTHING
     pgSql = pgSql.replace(/INSERT\s+OR\s+IGNORE\s+INTO/i, "INSERT INTO");
