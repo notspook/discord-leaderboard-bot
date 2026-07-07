@@ -47,11 +47,33 @@ if (isPG) {
     return { sql: pgSql, params };
   }
 
+  // Map PG's lowercase column names back to camelCase (SQLite preserves case, PG doesn't)
+  const CASE_MAP = {
+    userid: "userId", messages: "messages", voiceseconds: "voiceSeconds",
+    lastjoin: "lastJoin", dailymessages: "dailyMessages", dailyvoice: "dailyVoice",
+    larpstreak: "larpStreak", larpwins: "larpWins", channelid: "channelId",
+    roleid: "roleId", sharedwith: "sharedWith", bannedat: "bannedAt",
+    timestamp: "timestamp", username: "username"
+  };
+  function fixRow(row) {
+    if (!row) return row;
+    const out = {};
+    for (const [k, v] of Object.entries(row)) {
+      out[k] = v;
+      const mapped = CASE_MAP[k];
+      if (mapped && mapped !== k) out[mapped] = v;
+    }
+    return out;
+  }
+
   function call(method, sql, params, cb) {
     if (typeof params === "function") { cb = params; params = []; }
     const { sql: pgSql, params: pgParams } = q(sql, params || []);
     pool.query(pgSql, pgParams).then(r => {
-      if (cb) cb(null, method === "run" ? r : method === "get" ? r.rows[0] : r.rows);
+      if (!cb) return;
+      if (method === "run") cb(null, r);
+      else if (method === "get") cb(null, fixRow(r.rows[0]));
+      else cb(null, r.rows.map(fixRow));
     }).catch(e => {
       if (cb) cb(e);
     });
