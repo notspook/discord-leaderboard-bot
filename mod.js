@@ -1,31 +1,33 @@
 const db = require("./database");
 
 // -------------------- TABLES --------------------
-db.run(`CREATE TABLE IF NOT EXISTS dm_inbox (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  userId TEXT NOT NULL,
-  username TEXT NOT NULL,
-  content TEXT NOT NULL,
-  timestamp INTEGER NOT NULL,
-  read INTEGER DEFAULT 0
-)`, () => {});
+db.serialize(() => {
+  db.run(`CREATE TABLE IF NOT EXISTS dm_inbox (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    userId TEXT NOT NULL,
+    username TEXT NOT NULL,
+    content TEXT NOT NULL,
+    timestamp INTEGER NOT NULL,
+    read INTEGER DEFAULT 0
+  )`);
 
-db.run(`CREATE TABLE IF NOT EXISTS mod_banned (
-  userId TEXT PRIMARY KEY,
-  username TEXT,
-  reason TEXT,
-  bannedAt INTEGER
-)`, () => {});
+  db.run(`CREATE TABLE IF NOT EXISTS mod_banned (
+    userId TEXT PRIMARY KEY,
+    username TEXT,
+    reason TEXT,
+    bannedAt INTEGER
+  )`);
 
-db.run(`CREATE TABLE IF NOT EXISTS mod_settings (
-  key TEXT PRIMARY KEY,
-  value TEXT
-)`, () => {});
+  db.run(`CREATE TABLE IF NOT EXISTS mod_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT
+  )`);
 
-// Default settings
-db.run(`INSERT OR IGNORE INTO mod_settings (key, value) VALUES ('auto_reply_enabled', '1')`, () => {});
-db.run(`INSERT OR IGNORE INTO mod_settings (key, value) VALUES ('raid_mode', '0')`, () => {});
-db.run(`INSERT OR IGNORE INTO mod_settings (key, value) VALUES ('raid_account_age_days', '7')`, () => {});
+  // Default settings
+  db.run(`INSERT OR IGNORE INTO mod_settings (key, value) VALUES ('auto_reply_enabled', '1')`);
+  db.run(`INSERT OR IGNORE INTO mod_settings (key, value) VALUES ('raid_mode', '0')`);
+  db.run(`INSERT OR IGNORE INTO mod_settings (key, value) VALUES ('raid_account_age_days', '7')`);
+});
 
 // In-memory join tracker for raid detection: { userId: joinTimestamp }
 const recentJoins = new Map();
