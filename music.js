@@ -36,7 +36,6 @@ function ytOpts(extra = {}) {
     noCheckCertificates: true,
     noWarnings: true,
     preferFreeFormats: true,
-    extractorArgs: "youtube:player_client=android",
     ...extra
   };
   if (cookiesPath) opts.cookies = cookiesPath;
@@ -118,20 +117,10 @@ async function downloadYtdlToTemp(url) {
   } catch (e) {
     console.log("[music] play-dl failed, falling back to yt-dlp:", e.message);
     const prefix = `larpbot_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-    try {
-      await youtubedl(url, ytOpts({
-        output: path.join(os.tmpdir(), `${prefix}.%(ext)s`),
-        format: "bestaudio[ext=m4a]/bestaudio/best",
-      }));
-    } catch (e2) {
-      console.log("[music] yt-dlp android client download failed:", e2.message?.slice(0, 200));
-      const fallback = ytOpts({
-        output: path.join(os.tmpdir(), `${prefix}.%(ext)s`),
-        format: "bestaudio[ext=m4a]/bestaudio/best",
-      });
-      delete fallback.extractorArgs;
-      await youtubedl(url, fallback);
-    }
+    await youtubedl(url, ytOpts({
+      output: path.join(os.tmpdir(), `${prefix}.%(ext)s`),
+      format: "bestaudio[ext=m4a]/bestaudio/best",
+    }));
     const files = fs.readdirSync(os.tmpdir()).filter(f => f.startsWith(prefix));
     if (!files.length) throw new Error("yt-dlp produced no output");
     const dlPath = path.join(os.tmpdir(), files[0]);
@@ -232,19 +221,9 @@ async function resolveTrack(input) {
         };
       } catch (e1) {
         console.log("[music] play-dl video_basic_info failed:", e1.message);
-        // fall back to yt-dlp metadata — try android client, then default
-        let out, title, webpage_url;
-        const printOpts = { print: ["%(title)s", "%(webpage_url)s"] };
-        try {
-          out = await youtubedl(input, ytOpts(printOpts));
-          [title, webpage_url] = out.trim().split("\n");
-        } catch (e2) {
-          console.log("[music] yt-dlp android client failed:", e2.message?.slice(0, 200));
-          const fallback = ytOpts({ ...printOpts });
-          delete fallback.extractorArgs;
-          out = await youtubedl(input, fallback);
-          [title, webpage_url] = out.trim().split("\n");
-        }
+        // fall back to yt-dlp metadata
+        const out = await youtubedl(input, ytOpts({ dumpJson: true }));
+        const title = out.title, webpage_url = out.webpage_url;
         console.log("[music] yt-dlp resolved:", title);
         return { type: "youtubedl", url: webpage_url || input, title: title || "Unknown", webpage_url: webpage_url || input };
       }
