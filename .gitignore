@@ -5,3 +5,9 @@ data.db
 *.db-wal
 *.db-shm
 .DS_Store
+
+cookies.txt
+extract_cookies.py
+test_yt.js
+put_body.json
+render_body.json
