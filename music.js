@@ -234,17 +234,16 @@ async function resolveTrack(input) {
         console.log("[music] play-dl video_basic_info failed:", e1.message);
         // fall back to yt-dlp metadata — try android client, then default
         let out, title, webpage_url;
+        const printOpts = { print: ["%(title)s", "%(webpage_url)s"] };
         try {
-          out = await youtubedl(input, ytOpts({ print: "%(title)s\n%(webpage_url)s" }));
-          const lines = out.trim().split("\n");
-          title = lines[0]; webpage_url = lines[1];
+          out = await youtubedl(input, ytOpts(printOpts));
+          [title, webpage_url] = out.trim().split("\n");
         } catch (e2) {
           console.log("[music] yt-dlp android client failed:", e2.message?.slice(0, 200));
-          const fallback = ytOpts({ print: "%(title)s\n%(webpage_url)s" });
+          const fallback = ytOpts({ ...printOpts });
           delete fallback.extractorArgs;
           out = await youtubedl(input, fallback);
-          const lines = out.trim().split("\n");
-          title = lines[0]; webpage_url = lines[1];
+          [title, webpage_url] = out.trim().split("\n");
         }
         console.log("[music] yt-dlp resolved:", title);
         return { type: "youtubedl", url: webpage_url || input, title: title || "Unknown", webpage_url: webpage_url || input };
