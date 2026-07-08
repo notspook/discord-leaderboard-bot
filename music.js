@@ -29,7 +29,6 @@ function ytOpts(extra = {}) {
     noCheckCertificates: true,
     noWarnings: true,
     preferFreeFormats: true,
-    extractorArgs: "youtube:player_client=android",
     ...extra
   };
   if (cookiesPath) opts.cookies = cookiesPath;
