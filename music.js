@@ -18,6 +18,24 @@ const { spawn } = require("child_process");
 
 const FFMPEG = require("ffmpeg-static");
 
+let cookiesPath = null;
+if (process.env.YT_COOKIES) {
+  cookiesPath = path.join(os.tmpdir(), "yt_cookies.txt");
+  fs.writeFileSync(cookiesPath, Buffer.from(process.env.YT_COOKIES, "base64").toString());
+}
+
+function ytOpts(extra = {}) {
+  const opts = {
+    noCheckCertificates: true,
+    noWarnings: true,
+    preferFreeFormats: true,
+    extractorArgs: "youtube:player_client=android",
+    ...extra
+  };
+  if (cookiesPath) opts.cookies = cookiesPath;
+  return opts;
+}
+
 const queues = new Map();
 
 function getQueue(guildId) {
@@ -93,13 +111,10 @@ async function downloadYtdlToTemp(url) {
   } catch (e) {
     console.log("[music] play-dl failed, falling back to yt-dlp:", e.message);
     const prefix = `larpbot_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-    await youtubedl(url, {
+    await youtubedl(url, ytOpts({
       output: path.join(os.tmpdir(), `${prefix}.%(ext)s`),
       format: "bestaudio/best",
-      noCheckCertificates: true,
-      noWarnings: true,
-      preferFreeFormats: true,
-    });
+    }));
     const files = fs.readdirSync(os.tmpdir()).filter(f => f.startsWith(prefix));
     if (!files.length) throw new Error("yt-dlp produced no output");
     const dlPath = path.join(os.tmpdir(), files[0]);
@@ -201,12 +216,7 @@ async function resolveTrack(input) {
       } catch (e1) {
         console.log("[music] play-dl video_basic_info failed:", e1.message);
         // fall back to yt-dlp metadata
-        const out = await youtubedl(input, {
-          dumpSingleJson: true,
-          noCheckCertificates: true,
-          noWarnings: true,
-          preferFreeFormats: true
-        });
+        const out = await youtubedl(input, ytOpts({ dumpSingleJson: true }));
         return {
           type: "youtubedl",
           url: out.webpage_url || input,
