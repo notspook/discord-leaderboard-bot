@@ -20,8 +20,15 @@ const FFMPEG = require("ffmpeg-static");
 
 let cookiesPath = null;
 if (process.env.YT_COOKIES) {
-  cookiesPath = path.join(os.tmpdir(), "yt_cookies.txt");
-  fs.writeFileSync(cookiesPath, Buffer.from(process.env.YT_COOKIES, "base64").toString());
+  try {
+    cookiesPath = path.join(os.tmpdir(), "yt_cookies.txt");
+    fs.writeFileSync(cookiesPath, Buffer.from(process.env.YT_COOKIES, "base64").toString());
+    console.log("[music] cookies written to", cookiesPath, fs.statSync(cookiesPath).size, "bytes");
+  } catch (e) {
+    console.log("[music] failed to write cookies:", e.message);
+  }
+} else {
+  console.log("[music] YT_COOKIES env var not set");
 }
 
 function ytOpts(extra = {}) {
@@ -111,10 +118,20 @@ async function downloadYtdlToTemp(url) {
   } catch (e) {
     console.log("[music] play-dl failed, falling back to yt-dlp:", e.message);
     const prefix = `larpbot_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-    await youtubedl(url, ytOpts({
-      output: path.join(os.tmpdir(), `${prefix}.%(ext)s`),
-      format: "bestaudio/best",
-    }));
+    try {
+      await youtubedl(url, ytOpts({
+        output: path.join(os.tmpdir(), `${prefix}.%(ext)s`),
+        format: "bestaudio[ext=m4a]/bestaudio/best",
+      }));
+    } catch (e2) {
+      console.log("[music] yt-dlp android client download failed:", e2.message?.slice(0, 200));
+      const fallback = ytOpts({
+        output: path.join(os.tmpdir(), `${prefix}.%(ext)s`),
+        format: "bestaudio[ext=m4a]/bestaudio/best",
+      });
+      delete fallback.extractorArgs;
+      await youtubedl(url, fallback);
+    }
     const files = fs.readdirSync(os.tmpdir()).filter(f => f.startsWith(prefix));
     if (!files.length) throw new Error("yt-dlp produced no output");
     const dlPath = path.join(os.tmpdir(), files[0]);
@@ -215,14 +232,22 @@ async function resolveTrack(input) {
         };
       } catch (e1) {
         console.log("[music] play-dl video_basic_info failed:", e1.message);
-        // fall back to yt-dlp metadata
-        const out = await youtubedl(input, ytOpts({ dumpSingleJson: true, skipDownload: true }));
-        return {
-          type: "youtubedl",
-          url: out.webpage_url || input,
-          title: out.title || "Unknown",
-          webpage_url: out.webpage_url || input
-        };
+        // fall back to yt-dlp metadata — try android client, then default
+        let out, title, webpage_url;
+        try {
+          out = await youtubedl(input, ytOpts({ print: "%(title)s\n%(webpage_url)s" }));
+          const lines = out.trim().split("\n");
+          title = lines[0]; webpage_url = lines[1];
+        } catch (e2) {
+          console.log("[music] yt-dlp android client failed:", e2.message?.slice(0, 200));
+          const fallback = ytOpts({ print: "%(title)s\n%(webpage_url)s" });
+          delete fallback.extractorArgs;
+          out = await youtubedl(input, fallback);
+          const lines = out.trim().split("\n");
+          title = lines[0]; webpage_url = lines[1];
+        }
+        console.log("[music] yt-dlp resolved:", title);
+        return { type: "youtubedl", url: webpage_url || input, title: title || "Unknown", webpage_url: webpage_url || input };
       }
     }
     const results = await playdl.search(input, { limit: 1 });
