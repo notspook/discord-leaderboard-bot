@@ -190,13 +190,30 @@ async function resolveTrack(input) {
 
   try {
     if (input.includes("youtube.com") || input.includes("youtu.be")) {
-      const info = await playdl.video_basic_info(input);
-      return {
-        type: "youtubedl",
-        url: input,
-        title: info.video_details.title,
-        webpage_url: info.video_details.url
-      };
+      try {
+        const info = await playdl.video_basic_info(input);
+        return {
+          type: "youtubedl",
+          url: input,
+          title: info.video_details.title,
+          webpage_url: info.video_details.url
+        };
+      } catch (e1) {
+        console.log("[music] play-dl video_basic_info failed:", e1.message);
+        // fall back to yt-dlp metadata
+        const out = await youtubedl(input, {
+          dumpSingleJson: true,
+          noCheckCertificates: true,
+          noWarnings: true,
+          preferFreeFormats: true
+        });
+        return {
+          type: "youtubedl",
+          url: out.webpage_url || input,
+          title: out.title || "Unknown",
+          webpage_url: out.webpage_url || input
+        };
+      }
     }
     const results = await playdl.search(input, { limit: 1 });
     if (!results.length) throw new Error("No results");
@@ -207,6 +224,7 @@ async function resolveTrack(input) {
       webpage_url: results[0].url
     };
   } catch (e) {
+    console.log("[music] resolveTrack error:", e.message);
     throw new Error("Could not find track.");
   }
 }
