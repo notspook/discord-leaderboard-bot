@@ -29,6 +29,7 @@ function ytOpts(extra = {}) {
     noCheckCertificates: true,
     noWarnings: true,
     preferFreeFormats: true,
+    extractorArgs: "youtube:player_client=android",
     ...extra
   };
   if (cookiesPath) opts.cookies = cookiesPath;
@@ -215,7 +216,7 @@ async function resolveTrack(input) {
       } catch (e1) {
         console.log("[music] play-dl video_basic_info failed:", e1.message);
         // fall back to yt-dlp metadata
-        const out = await youtubedl(input, ytOpts({ dumpSingleJson: true }));
+        const out = await youtubedl(input, ytOpts({ dumpSingleJson: true, skipDownload: true }));
         return {
           type: "youtubedl",
           url: out.webpage_url || input,
