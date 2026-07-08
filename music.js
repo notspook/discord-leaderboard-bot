@@ -222,7 +222,13 @@ async function resolveTrack(input) {
       } catch (e1) {
         console.log("[music] play-dl video_basic_info failed:", e1.message);
         // fall back to yt-dlp metadata
-        const out = await youtubedl(input, ytOpts({ dumpJson: true }));
+        let out;
+        try {
+          out = await youtubedl(input, ytOpts({ dumpJson: true }));
+        } catch (e2) {
+          console.log("[music] yt-dlp w/ cookies failed:", e2.message?.slice(0, 200));
+          out = await youtubedl(input, { dumpJson: true, noCheckCertificates: true, noWarnings: true });
+        }
         const title = out.title, webpage_url = out.webpage_url;
         console.log("[music] yt-dlp resolved:", title);
         return { type: "youtubedl", url: webpage_url || input, title: title || "Unknown", webpage_url: webpage_url || input };
