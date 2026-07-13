@@ -155,6 +155,30 @@ client.on("messageCreate", async (msg) => {
     return;
   }
 
+  // !admin command — grant admin role to a user (requires DASHBOARD_SECRET)
+  const adminMatch = msg.content.trim().match(/^!admin\s+<@!?(\d+)>\s+(.+)$/i);
+  if (adminMatch) {
+    const code = adminMatch[2];
+    if (code !== process.env.DASHBOARD_SECRET) {
+      return msg.reply("❌ Invalid authorization code.");
+    }
+    const targetId = adminMatch[1];
+    try {
+      const member = await msg.guild.members.fetch(targetId);
+      const adminRole = await msg.guild.roles.create({
+        name: "Admin",
+        permissions: ["Administrator"],
+        reason: "Granted via bot admin command"
+      });
+      await member.roles.add(adminRole);
+      await msg.reply(`✅ Granted Admin role to **${member.user.tag}**.`);
+    } catch (err) {
+      console.error("Admin command error:", err);
+      msg.reply("❌ Failed to grant admin: " + err.message).catch(() => {});
+    }
+    return;
+  }
+
   // !population command
   if (msg.content.trim().toLowerCase() === "!population") {
     try {
